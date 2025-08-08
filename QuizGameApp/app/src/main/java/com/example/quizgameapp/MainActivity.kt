@@ -32,7 +32,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.quizgameapp.ui.theme.QuizGameAppTheme
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,24 +58,30 @@ class MainActivity : ComponentActivity() {
 fun QuizApp(viewModel: QuizGameViewModel) {
     val questionId by viewModel.questionId.collectAsState()
     val score by viewModel.score.collectAsState() // Compose može da reaguje samo na State, a ne direktno na StateFlow
-
-    when {
-        questionId < 0 -> {
-            WelcomeScreen(onStartClick = {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "welcomescreen") {
+        composable("welcomescreen") {
+            WelcomeScreen {
                 viewModel.startQuiz()
-            })
+                navController.navigate("quizgame")
+            }
         }
-        questionId >= viewModel.totalQuestions -> {
-            GameOverScreen(score, {
-                viewModel.resetQuiz()
-            })
+
+        composable("quizgame") {
+            val curQuestion = viewModel.currentQuestion
+            if (curQuestion != null) {
+                QuizGame(curQuestion, questionId + 1) { idCheckAnswer ->
+                    viewModel.checkAnswer(idCheckAnswer)
+                }
+            } else {
+                navController.navigate("gameoverscreen")
+            }
         }
-        else -> {
-            val curQuestion = viewModel.currentQuestion!!
-            val curQuestionId = questionId + 1
-            QuizGame(curQuestion, curQuestionId , { index ->
-                viewModel.checkAnswer(index)
-            })
+
+        composable("gameoverscreen") {
+            GameOverScreen(score) {
+                navController.navigate("welcomescreen")
+            }
         }
     }
 }
@@ -79,7 +89,7 @@ fun QuizApp(viewModel: QuizGameViewModel) {
 @Composable
 fun WelcomeScreen(
     modifier: Modifier = Modifier,
-    onStartClick: () -> Unit
+    onStartClick: () -> Unit,
 ) {
     Box (
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -177,13 +187,12 @@ fun GameOverScreen(score: Int, onRestartClick: () -> Unit) {
 
         Text(
             text = "YOUR SCORE: $score",
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 150.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 180.dp),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = 20.sp
             )
         )
-        Spacer(modifier = Modifier.padding(16.dp))
-        Button(onClick = onRestartClick) {
+        Button(onClick = onRestartClick, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 110.dp)) {
             Text("Play Again")
         }
     }
@@ -210,6 +219,6 @@ fun GamePreview() {
 @Composable
 fun GameOverPreview() {
     QuizGameAppTheme {
-        //GameOverScreen()
+        GameOverScreen(2, onRestartClick = {})
     }
 }
